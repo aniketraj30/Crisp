@@ -1,9 +1,9 @@
 import { defineConfig } from 'vite';
 import react from '@vitejs/plugin-react';
 
-// https://vitejs.dev/config/
 export default defineConfig({
   plugins: [react()],
+  base: 'https://aniketraj30.github.io/Crisp/', // Replace 'Crisp' with your repository name
   optimizeDeps: {
     exclude: ['lucide-react'],
   },
