@@ -15,7 +15,7 @@ import {
 } from '../store/interviewSlice';
 import { ChatMessage } from './ChatMessage';
 import { Timer } from './Timer';
-import { Upload, Send, FileText, User, Mail, Phone } from 'lucide-react';
+import { Upload, Send, FileText, User, Mail, Phone, X } from 'lucide-react';
 import { ResumeParser } from '../utils/resumeParser';
 import { aiService } from '../utils/aiService';
 import { Candidate, ChatMessage as ChatMessageType, InterviewQuestion } from '../types';
@@ -348,6 +348,45 @@ export const IntervieweeTab: React.FC = () => {
     }
   };
 
+  const exitInterview = async () => {
+    if (!currentCandidate) return;
+
+    dispatch(addChatMessage({
+      id: Date.now().toString(),
+      type: 'ai',
+      content: 'Exiting interview early. Generating final assessment based on current progress...',
+      timestamp: Date.now(),
+      isTyping: true,
+    }));
+
+    try {
+      const { score, summary } = await aiService.generateFinalSummary(currentCandidate.answers);
+      dispatch(setFinalScore({ score, summary }));
+      dispatch(updateCandidateField({ field: 'status', value: 'completed' }));
+
+      dispatch(addChatMessage({
+        id: Date.now().toString(),
+        type: 'ai',
+        content: `🎉 **Interview Ended!**\n\n**Final Score:** ${score}/100\n\n**Assessment Summary:**\n${summary}\n\nYour partial results have been saved and will be reviewed by our team.`,
+        timestamp: Date.now(),
+      }));
+    } catch (error) {
+      dispatch(addChatMessage({
+        id: Date.now().toString(),
+        type: 'ai',
+        content: 'Error generating final summary. Interview ended.',
+        timestamp: Date.now(),
+      }));
+    }
+  };
+
+  const changeResume = () => {
+    dispatch(setCurrentCandidate(null));
+    if (fileInputRef.current) {
+      fileInputRef.current.value = '';
+    }
+  };
+
   const getCurrentQuestion = (): InterviewQuestion | null => {
     if (!currentCandidate || !isInterviewActive) return null;
     return currentCandidate.questions[currentCandidate.currentQuestion] || null;
@@ -360,18 +399,38 @@ export const IntervieweeTab: React.FC = () => {
       {/* Header */}
       <div className="bg-white border-b border-gray-200 px-6 py-4">
         <div className="flex items-center justify-between">
-          <div>
+          <div className="flex items-center space-x-2">
             <h2 className="text-lg font-semibold text-gray-900">Interview Chat</h2>
-            {currentCandidate && (
-              <p className="text-sm text-gray-600">
-                {currentCandidate.name || 'Candidate'} • Status: {currentCandidate.status.replace('-', ' ')}
-              </p>
+            {currentCandidate && currentCandidate.name && (
+              <span className="text-sm text-gray-600">
+                {currentCandidate.name} 
+                <button
+                  onClick={changeResume}
+                  className="ml-2 text-red-500 hover:text-red-700"
+                  title="Change Resume"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              </span>
+            )}
+            {!currentCandidate && (
+              <p className="text-sm text-gray-600">Candidate</p>
             )}
           </div>
           
           {currentCandidate && currentCandidate.status !== 'completed' && (
-            <div className="text-sm text-gray-500 bg-gray-100 px-3 py-1 rounded-full">
-              Question {Math.min(currentCandidate.currentQuestion + 1, currentCandidate.questions.length)}/{currentCandidate.questions.length || 6}
+            <div className="flex items-center space-x-2">
+              <div className="text-sm text-gray-500 bg-gray-100 px-3 py-1 rounded-full">
+                Question {Math.min(currentCandidate.currentQuestion + 1, currentCandidate.questions.length)}/{currentCandidate.questions.length || 6}
+              </div>
+              {(currentCandidate.status === 'interviewing' || currentCandidate.status === 'collecting-info') && (
+                <button
+                  onClick={exitInterview}
+                  className="text-sm text-red-500 hover:text-red-700 font-medium"
+                >
+                  Exit Interview
+                </button>
+              )}
             </div>
           )}
         </div>
